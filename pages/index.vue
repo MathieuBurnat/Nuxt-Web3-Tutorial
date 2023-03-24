@@ -17,6 +17,7 @@
       <p>Network: {{ web3.networkId }}</p>
       <p>Account: {{ web3.coinbase }}</p>
       <p>Balance: {{ web3.balance }}</p>
+      <p>Account: {{ account }}</p>
       <p>Smart Contract Message: {{ message }}</p>
     </div>
     <p class="italic text-red-600">{{ errorMessage }}</p>
@@ -36,7 +37,8 @@ export default {
       errorMessage: "",
       instance: null,
       message: "",
-      value: "",
+      account: "",
+      value: "test",
     };
   },
   computed: {
@@ -90,6 +92,11 @@ export default {
     async interact(action) {
       console.log("interact");
 
+      this.account = await this.instance.eth.getAccounts().then((accounts) => {
+        console.log(accounts);
+        return accounts[0];
+      });
+
       const chainId = await this.instance.eth.getChainId();
       if (chainId != 5) {
         this.errorMessage =
@@ -128,21 +135,14 @@ export default {
         // create transaction
         const tx_builder = await contract.methods.update(message);
         const encoded_tx = await tx_builder.encodeABI();
-        const transactionObject = {
-          gas: 100000,
+        const transactionConfig = {
           data: encoded_tx,
           from: this.account,
           to: contract_address,
         };
 
-        // create signed transaction
-        const signedTx = await this.instance.eth.accounts.signTransaction(
-          transactionObject,
-          private_key
-        );
-
-        this.instance.eth.sendSignedTransaction(
-          signedTx.rawTransaction,
+        this.instance.eth.sendTransaction(
+          transactionConfig,
           function (error, hash) {
             if (!error) {
               console.log(
@@ -159,14 +159,6 @@ export default {
           }
         );
       }
-      /*
-      // NOT WORKING
-      // sign trasaction with walletconnect 2 signClient
-      //const signedTx2 = await signClient.signTransaction(
-      //  signedTx.rawTransaction,
-      //  this._WalletConnectProvider
-      //);
-      */
     },
   },
 };
