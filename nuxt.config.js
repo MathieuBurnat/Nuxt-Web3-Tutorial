@@ -15,6 +15,10 @@ export default {
       { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
     ]
   },
+  env: {
+    SMART_CONTRACT_ADDRESS: process.env.SMART_CONTRACT_ADDRESS,
+    WALLET_PRIVATE_KEY: process.env.WALLET_PRIVATE_KEY,
+  },
 
   // Global CSS: https://go.nuxtjs.dev/config-css
   css: [

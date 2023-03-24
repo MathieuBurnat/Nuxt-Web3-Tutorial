@@ -4,14 +4,20 @@
       <button @click="initWeb3">[Connect Metamask]</button>
     </div>
     <div v-else>
-      <button @click="interact">[Smart Contract]</button>
+      <button @click="interact('read')">[Smart Contract : READ]</button>
+      <button @click="interact('write')">[Smart Contract : WRITE]</button>
       <button @click="disconnectWeb3">[Disconnect Metamask]</button>
+    </div>
+    <div>
+      <label for="fname">Write new value</label><br />
+      <input v-model="value" /><br />
     </div>
     <div>
       <p>Informations :</p>
       <p>Network: {{ web3.networkId }}</p>
       <p>Account: {{ web3.coinbase }}</p>
       <p>Balance: {{ web3.balance }}</p>
+      <p>Smart Contract Message: {{ message }}</p>
     </div>
     <p class="italic text-red-600">{{ errorMessage }}</p>
   </div>
@@ -21,6 +27,7 @@
 import Web3 from "web3";
 
 import { mapGetters, mapMutations } from "vuex";
+import { get_smart_contract_abi } from "../sources/smart_contract_abi";
 
 export default {
   name: "Index",
@@ -28,6 +35,8 @@ export default {
     return {
       errorMessage: "",
       instance: null,
+      message: "",
+      value: "",
     };
   },
   computed: {
@@ -74,13 +83,90 @@ export default {
         return;
       }
     },
-    async interact() {
-      // TODO : interact with smart contract
-      console.log("interact");
-    },
     async disconnectWeb3() {
       // TODO : disconnect Metamask
       this.instance = null;
+    },
+    async interact(action) {
+      console.log("interact");
+
+      const chainId = await this.instance.eth.getChainId();
+      if (chainId != 5) {
+        this.errorMessage =
+          "You are not on the testnet, please change your network";
+        return;
+      } else {
+        console.log("--- Testnet: OK ---");
+      }
+
+      const contract_address = process.env.SMART_CONTRACT_ADDRESS;
+      console.log("contract_address");
+      console.log(contract_address);
+
+      const contract = new this.instance.eth.Contract(
+        get_smart_contract_abi(),
+        contract_address
+      );
+
+      if (action == "read") {
+        console.log("======= Call smart contract -> get message ========");
+        contract.methods
+          .message()
+          .call()
+          .then((value) => {
+            console.log(value);
+            this.message = value;
+          });
+      }
+
+      if (action == "write") {
+        console.log("======= Call smart contract -> set a message ========");
+
+        const message = this.value;
+        const private_key = process.env.WALLET_PRIVATE_KEY;
+
+        // create transaction
+        const tx_builder = await contract.methods.update(message);
+        const encoded_tx = await tx_builder.encodeABI();
+        const transactionObject = {
+          gas: 100000,
+          data: encoded_tx,
+          from: this.account,
+          to: contract_address,
+        };
+
+        // create signed transaction
+        const signedTx = await this.instance.eth.accounts.signTransaction(
+          transactionObject,
+          private_key
+        );
+
+        this.instance.eth.sendSignedTransaction(
+          signedTx.rawTransaction,
+          function (error, hash) {
+            if (!error) {
+              console.log(
+                "🎉 The hash of your transaction is: ",
+                hash,
+                "\n Check Alchemy's Mempool to view the status of your transaction!"
+              );
+            } else {
+              console.log(
+                "❗Something went wrong while submitting your transaction:",
+                error
+              );
+            }
+          }
+        );
+      }
+      /*
+      // NOT WORKING
+      // sign trasaction with walletconnect 2 signClient
+      //const signedTx2 = await signClient.signTransaction(
+      //  signedTx.rawTransaction,
+      //  this._WalletConnectProvider
+      //);
+      */
     },
   },
 };
